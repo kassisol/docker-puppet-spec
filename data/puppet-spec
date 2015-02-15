@@ -1,0 +1,330 @@
+#!/bin/bash
+
+ECHO="echo -e"
+
+function displaycolor {
+    if [ "$#" -eq "1" ]; then
+        ${ECHO} "$1"
+    elif [ "$#" -eq "2" ]; then
+        ${ECHO} "\e[${1}m${2}\e[0m"
+    fi
+}
+
+# set an initial value for the flag
+CONF_PARSER="/usr/local/bin/confparser"
+
+MODULE_DIR="/srv/module"
+MODULE_BRANCH="master"
+
+WORKING_DIR="/tmp/module"
+
+CONFIG_FILE=".ci.yml"
+
+PUPPET_VERSION_INDEX=0
+RVM_VERSION_INDEX=0
+GEMFILE_INDEX=0
+
+# read the options
+TEMP=`getopt -o m:b:c:p:r: --long modulepath:,modulebranch:,config:,puppetversion:,rvmversion: -n "${0##*/}" -- "$@"`
+eval set -- "$TEMP"
+
+# extract options and their arguments into variables.
+while true ; do
+    case "$1" in
+        -m|--modulepath)
+            case "$2" in
+                "") shift 2 ;;
+                *) MODULE_DIR=$2 ; shift 2 ;;
+            esac ;;
+        -b|--modulebranch)
+            case "$2" in
+                "") shift 2 ;;
+                *) MODULE_BRANCH=$2 ; shift 2 ;;
+            esac ;;
+        -c|--config)
+            case "$2" in
+                "") shift 2 ;;
+                *) CONFIG_FILE=$2 ; shift 2 ;;
+            esac ;;
+        -g|--gemfile)
+            case "$2" in
+                "") shift 2 ;;
+                *) GEMFILE_INDEX=$2 ; shift 2 ;;
+            esac ;;
+        -p|--puppetversion)
+            case "$2" in
+                "") shift 2 ;;
+                *) PUPPET_VERSION_INDEX=$2 ; shift 2 ;;
+            esac ;;
+        -r|--rvmversion)
+            case "$2" in
+                "") shift 2 ;;
+                *) RVM_VERSION_INDEX=$2 ; shift 2 ;;
+            esac ;;
+        --) shift ; break ;;
+        *) echo "Internal error!" ; exit 1 ;;
+    esac
+done
+
+# Check if MODULE_DIR exist
+if [ ! -d "${MODULE_DIR}" ]; then
+    displaycolor "1;91" "${MODULE_DIR} does not exist."
+
+    exit 1
+fi
+
+# Check if CONFIG_FILE exist
+if [ ! -f "${MODULE_DIR}/${CONFIG_FILE}" ]; then
+    displaycolor "1;91" "Configuration file \"${CONFIG_FILE}\" does not exist."
+
+    exit 1
+fi
+
+# Check if PUPPET_VERSION_INDEX is valid
+if [ ! -z "${PUPPET_VERSION_INDEX}" ]; then
+    if [ `echo "${PUPPET_VERSION_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
+        displaycolor "1;91" "Puppet version index is not valid."
+
+        exit 1
+    fi
+else
+    displaycolor "1;91" "Puppet version index is not valid."
+
+    exit 1
+fi
+
+# Check if RVM_VERSION_INDEX is valid
+if [ ! -z ${RVM_VERSION_INDEX} ]; then
+    if [ `echo "${RVM_VERSION_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
+        displaycolor "1;91" "RVM version index is not valid."
+
+        exit 1
+    fi
+else
+    displaycolor "1;91" "Puppet version index is not valid."
+
+    exit 1
+fi
+
+BUILD_LANGUAGE=`${CONF_PARSER} -c ${MODULE_DIR}/${CONFIG_FILE} -k language`
+
+# Display container informations
+${ECHO} "Using container: ${HOSTNAME}"
+
+${ECHO} "\n"
+
+displaycolor "1;93" "Build system information"
+${ECHO} "Build language: ${BUILD_LANGUAGE}"
+
+displaycolor "1;94" "Build image provisioning date and time"
+date 2> /dev/null
+
+displaycolor "1;94" "Operating System Details"
+lsb_release -a 2> /dev/null
+
+displaycolor "1;94" "Linux Version"
+uname -r 2> /dev/null
+
+displaycolor "1;94" "GCC Version"
+gcc --version 2> /dev/null
+
+
+displaycolor "1;94" "Pre-installed Ruby versions"
+ruby --version 2> /dev/null
+
+displaycolor "1;94" "Git version"
+git --version 2> /dev/null
+
+${ECHO} "\n"
+
+displaycolor "1;93" "OS name: \"`uname -s 2> /dev/null`\", version: \"`uname -r 2> /dev/null`\", arch: \"`uname -m 2> /dev/null`\""
+
+${ECHO} "\n"
+
+
+# Set Proxy
+source /etc/profile.d/proxy.sh
+
+if [ ! -z ${http_proxy} ]; then
+    displaycolor "1;93" "Using proxy: ${http_proxy}"
+
+    ${ECHO} "\n"
+fi
+
+# Clone a copy of repository
+${ECHO} "$ git clone --local --no-hardlinks ${MODULE_DIR} ${WORKING_DIR}"
+git clone --local --no-hardlinks ${MODULE_DIR} ${WORKING_DIR}
+
+# Change working directory
+${ECHO} "$ cd ${WORKING_DIR}"
+cd ${WORKING_DIR}
+
+${ECHO} "$ git checkout ${MODULE_BRANCH}"
+git checkout ${MODULE_BRANCH}
+
+${ECHO} "\n"
+
+
+WORKING_CONFIG_FULL_PATH="${WORKING_DIR}/${CONFIG_FILE}"
+
+# Check if WORKING_CONFIG_FULL_PATH exist
+if [ ! -f "${WORKING_CONFIG_FULL_PATH}" ]; then
+	displaycolor "1;91" "Configuration file \"${WORKING_CONFIG_FULL_PATH}\" does not exist."
+
+	exit 1
+fi
+
+BUILD_LANGUAGE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k language`
+BEFORE_INSTALL=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_install`
+INSTALL=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k install`
+BEFORE_SCRIPT=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_script`
+SCRIPT=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k script`
+
+
+# Set environment variables
+PUPPET_VERSION=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k env -i ${PUPPET_VERSION_INDEX}`
+
+displaycolor "1;93" "Setting environment variables from ${CONFIG_FILE}"
+${ECHO} "$ export ${PUPPET_VERSION}"
+export ${PUPPET_VERSION}
+
+${ECHO} "\n"
+
+# Run before_install
+if [ ! -z ${BEFORE_INSTALL} ]; then
+    ${ECHO} "before_install"
+    ${ECHO} "$ ${BEFORE_INSTALL}"
+    eval ${BEFORE_INSTALL}
+
+    BEFORE_INSTALL_CODE="$?"
+
+    if [ "${BEFORE_INSTALL_CODE}" -ne "0" ]; then
+        displaycolor "1;91" "The command \"${BEFORE_INSTALL}\" exited with code ${BEFORE_INSTALL_CODE}."
+
+        exit ${BEFORE_INSTALL_CODE}
+    fi
+fi
+
+# Run install
+if [ ! -z ${BEFORE_INSTALL} ]; then
+    ${ECHO} "install"
+    ${ECHO} "$ ${INSTALL}"
+    eval ${INSTALL}
+
+    INSTALL_CODE="$?"
+
+    if [ "${INSTALL_CODE}" -ne "0" ]; then
+        displaycolor "1;91" "The command \"${INSTALL}\" exited with code ${INSTALL_CODE}."
+
+        exit ${INSTALL_CODE}
+    fi
+fi
+
+# BUILD LANGUAGE RUBY
+if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
+    RVM_VERSION=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k rvm -i ${RVM_VERSION_INDEX}`
+    GEMFILE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k gemfile -i ${GEMFILE_INDEX}`
+
+    if [ ! -f "${WORKING_DIR}/${GEMFILE}" ]; then
+        displaycolor "1;91" "The file \"${GEMFILE}\" does not exist."
+
+        exit 1
+    fi
+
+    # RVM
+    if [ ! -x "/usr/local/rvm/bin/rvm" ]; then
+        curl -sSL https://rvm.io/mpapis.asc | gpg --import -
+        curl -L https://get.rvm.io | bash -s stable
+
+        source /etc/profile.d/rvm.sh
+
+        rvm requirements
+    fi
+
+    if [ -z ${rvm_bin_path} ]; then
+        source /etc/profile.d/rvm.sh
+    fi
+
+    # Install of ruby
+    ruby_installed=`rvm list strings | grep "${RVM_VERSION}" | wc -l`
+
+    if [ "${ruby_installed}" -eq "0" ]; then
+    	  rvm install ${RVM_VERSION}
+    fi
+
+    ${ECHO} "$ rvm use ${RVM_VERSION}"
+    rvm use ${RVM_VERSION}
+    #rvm use ${RVM_VERSION} --install --binary --fuzzy
+
+    ${ECHO} "$ export BUNDLE_GEMFILE=\$PWD/${GEMFILE}"
+    export BUNDLE_GEMFILE=${PWD}/${GEMFILE}
+
+    ${ECHO} "$ ruby --version"
+    ruby --version 2> /dev/null
+
+    ${ECHO} "$ rvm --version"
+    rvm --version 2> /dev/null
+
+    ${ECHO} "$ bundle --version"
+    bundle --version 2> /dev/null
+
+    ${ECHO} "$ gem --version"
+    gem --version 2> /dev/null
+
+    # Remove Gemfile.lock
+    if [ -f "${WORKING_DIR}/${GEMFILE}.lock" ]; then
+        rm -f "${WORKING_DIR}/${GEMFILE}.lock"
+    fi
+
+    # Install gems
+    GEMS_INSTALL_CMD="bundle install --jobs=3 --retry=3"
+
+    ${ECHO} "install.bundler"
+    ${ECHO} "$ ${GEMS_INSTALL_CMD}"
+    eval ${GEMS_INSTALL_CMD}
+
+    GEMS_INSTALL_CODE="$?"
+
+    if [ "${GEMS_INSTALL_CODE}" -ne "0" ]; then
+        displaycolor "1;91" "The command \"${GEMS_INSTALL_CMD}\" exited with code ${GEMS_INSTALL_CODE}."
+
+        exit ${GEMS_INSTALL_CODE}
+    fi
+fi
+# END BUILD LANGUAGE RUBY
+
+# Run before_script
+${ECHO} "before_script"
+${ECHO} "$ ${BEFORE_SCRIPT}"
+eval ${BEFORE_SCRIPT}
+
+BEFORE_SCRIPT_CODE="$?"
+
+if [ "${BEFORE_SCRIPT_CODE}" -ne "0" ]; then
+    displaycolor "1;91" "The command \"${BEFORE_SCRIPT}\" exited with code ${BEFORE_SCRIPT_CODE}."
+
+    exit ${BEFORE_SCRIPT_CODE}
+fi
+
+# Finally run script
+${ECHO} "script"
+${ECHO} "$ ${SCRIPT}"
+eval ${SCRIPT}
+
+SCRIPT_CODE="$?"
+
+${ECHO} "\n"
+
+# End
+color_code="1;91"
+if [ "${SCRIPT_CODE}" -eq "0" ]; then
+    color_code="1;92"
+fi
+
+displaycolor "${color_code}" "The command \"${SCRIPT}\" exited with code ${SCRIPT_CODE}."
+
+${ECHO} "\n"
+
+${ECHO} "Done. Your build exited with code ${SCRIPT_CODE}.\n"
+
+exit ${SCRIPT_CODE}

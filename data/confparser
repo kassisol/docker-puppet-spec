@@ -1,0 +1,105 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'yaml'
+
+name      = 'CI-Conf-Parser'
+conf_file = '.ci.yml'
+key       = 'language'
+index     = 0
+
+OptionParser.new do |opts|
+  opts.banner += ' [arguments...]'
+
+  opts.separator ''
+  opts.separator 'Specific options:'
+
+  opts.version = '0.0.3'
+
+  opts.on('-c', '--config FILE', "File #{conf_file}") do |arg|
+    conf_file = arg.to_s
+  end
+
+  opts.on('-k', '--key KEY', [ :env, :language, :before_install, :install, :before_script, :script, :rvm, :gemfile ],
+          'Key (env, language, before_install, install, before_script, script, rvm, gemfile)') do |arg|
+    key = arg.to_s
+  end
+
+  opts.on('-i', '--index INDEX', /[0-9]+/i, 'Index [0]') do |arg|
+    index = arg.to_i
+  end
+
+  begin
+    opts.parse!
+  rescue OptionParser::ParseError => error
+    $stderr.puts error
+    $stderr.puts '(-h or --help will show valid options)'
+
+    exit 1
+  end
+end
+
+begin
+  conf = YAML.load(File.open(conf_file))
+rescue Exception
+  puts %{Error opening configuration file.}
+
+  exit 1
+end
+
+begin
+  result = nil
+
+  if key == 'env'
+    if not index.nil?
+      begin
+        result = conf['env'][index.to_i]
+      rescue
+        result = nil
+      end
+    end
+  end
+
+  if key == 'language'
+    result = conf['language']
+  end
+
+  if key =~ /^before_install$|^install$|^before_script$|^script$/
+    if conf[key].kind_of?(Array)
+      result = conf[key].join(' && ')
+    else
+      result = conf[key]
+    end
+  end
+
+  if key == 'rvm'
+    if not index.nil?
+      begin
+        result = conf['rvm'][index.to_i]
+      rescue
+        result = nil
+      end
+    end
+  end
+
+  if key == 'gemfile'
+    if conf[key].kind_of?(Array)
+      if not index.nil?
+        begin
+          result = conf['gemfile'][index.to_i]
+        rescue
+          result = nil
+        end
+      end
+    else
+      result = conf['gemfile']
+    end
+  end
+
+  puts result
+rescue Exception => e
+  puts e
+  puts 'There is error in config file'
+
+  exit 1
+end
