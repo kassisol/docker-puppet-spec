@@ -14,14 +14,14 @@ OptionParser.new do |opts|
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.version = '0.0.3'
+  opts.version = '0.0.4'
 
   opts.on('-c', '--config FILE', "File #{conf_file}") do |arg|
     conf_file = arg.to_s
   end
 
-  opts.on('-k', '--key KEY', [ :env, :language, :before_install, :install, :before_script, :script, :rvm, :gemfile ],
-          'Key (env, language, before_install, install, before_script, script, rvm, gemfile)') do |arg|
+  opts.on('-k', '--key KEY', [ :env, :language, :rvm, :gemfile, :before_install, :install, :before_script, :script ],
+          'Key (env, language, rvm, gemfile, before_install, install, before_script, script)') do |arg|
     key = arg.to_s
   end
 
@@ -39,6 +39,7 @@ OptionParser.new do |opts|
   end
 end
 
+
 begin
   conf = YAML.load(File.open(conf_file))
 rescue Exception
@@ -47,29 +48,33 @@ rescue Exception
   exit 1
 end
 
+
 begin
   result = nil
 
   if key == 'env'
-    if not index.nil?
-      begin
-        result = conf['env'][index.to_i]
-      rescue
-        result = nil
+    if conf['env'].kind_of?(Array)
+      result = conf['env'][index.to_i]
+    elsif conf['env'].kind_of?(Hash)
+      if conf['env'].has_key?('global')
+        r = conf['env']['global']
+      end
+
+      if r.kind_of?(Array)
+        r.push(conf['env']['matrix'][index.to_i])
+        result = r.join(' ')
+      else
+        result = conf['env']['matrix'][index.to_i]
+      end
+    else
+      if conf['env'].length > 0
+        result = conf['env']
       end
     end
   end
 
   if key == 'language'
     result = conf['language']
-  end
-
-  if key =~ /^before_install$|^install$|^before_script$|^script$/
-    if conf[key].kind_of?(Array)
-      result = conf[key].join(' && ')
-    else
-      result = conf[key]
-    end
   end
 
   if key == 'rvm'
@@ -93,6 +98,14 @@ begin
       end
     else
       result = conf['gemfile']
+    end
+  end
+
+  if key =~ /^before_install$|^install$|^before_script$|^script$/
+    if conf[key].kind_of?(Array)
+      result = conf[key].join(' && ')
+    else
+      result = conf[key]
     end
   end
 

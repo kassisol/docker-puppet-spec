@@ -20,22 +20,17 @@ WORKING_DIR="/tmp/module"
 
 CONFIG_FILE=".ci.yml"
 
-PUPPET_VERSION_INDEX=0
+ENV_INDEX=0
 RVM_VERSION_INDEX=0
 GEMFILE_INDEX=0
 
 # read the options
-TEMP=`getopt -o m:b:c:p:r: --long modulepath:,modulebranch:,config:,puppetversion:,rvmversion: -n "${0##*/}" -- "$@"`
-eval set -- "$TEMP"
+TEMP=`getopt -o b:c:e:g:m:r: --long modulebranch:,config:,env:,gemfile:,modulepath:,rvmversion: -n "${0##*/}" -- "$@"`
+eval set -- "${TEMP}"
 
 # extract options and their arguments into variables.
 while true ; do
     case "$1" in
-        -m|--modulepath)
-            case "$2" in
-                "") shift 2 ;;
-                *) MODULE_DIR=$2 ; shift 2 ;;
-            esac ;;
         -b|--modulebranch)
             case "$2" in
                 "") shift 2 ;;
@@ -46,15 +41,20 @@ while true ; do
                 "") shift 2 ;;
                 *) CONFIG_FILE=$2 ; shift 2 ;;
             esac ;;
+        -e|--env)
+            case "$2" in
+                "") shift 2 ;;
+                *) ENV_INDEX=$2 ; shift 2 ;;
+            esac ;;
         -g|--gemfile)
             case "$2" in
                 "") shift 2 ;;
                 *) GEMFILE_INDEX=$2 ; shift 2 ;;
             esac ;;
-        -p|--puppetversion)
+        -m|--modulepath)
             case "$2" in
                 "") shift 2 ;;
-                *) PUPPET_VERSION_INDEX=$2 ; shift 2 ;;
+                *) MODULE_DIR=$2 ; shift 2 ;;
             esac ;;
         -r|--rvmversion)
             case "$2" in
@@ -66,13 +66,6 @@ while true ; do
     esac
 done
 
-# Check if MODULE_DIR exist
-if [ ! -d "${MODULE_DIR}" ]; then
-    displaycolor "1;91" "${MODULE_DIR} does not exist."
-
-    exit 1
-fi
-
 # Check if CONFIG_FILE exist
 if [ ! -f "${MODULE_DIR}/${CONFIG_FILE}" ]; then
     displaycolor "1;91" "Configuration file \"${CONFIG_FILE}\" does not exist."
@@ -80,15 +73,22 @@ if [ ! -f "${MODULE_DIR}/${CONFIG_FILE}" ]; then
     exit 1
 fi
 
-# Check if PUPPET_VERSION_INDEX is valid
-if [ ! -z "${PUPPET_VERSION_INDEX}" ]; then
-    if [ `echo "${PUPPET_VERSION_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
-        displaycolor "1;91" "Puppet version index is not valid."
+# Check if ENV_INDEX is valid
+if [ ! -z "${ENV_INDEX}" ]; then
+    if [ `echo "${ENV_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
+        displaycolor "1;91" "Env index is not valid."
 
         exit 1
     fi
 else
-    displaycolor "1;91" "Puppet version index is not valid."
+    displaycolor "1;91" "Env index is not valid."
+
+    exit 1
+fi
+
+# Check if MODULE_DIR exist
+if [ ! -d "${MODULE_DIR}" ]; then
+    displaycolor "1;91" "${MODULE_DIR} does not exist."
 
     exit 1
 fi
@@ -169,10 +169,12 @@ WORKING_CONFIG_FULL_PATH="${WORKING_DIR}/${CONFIG_FILE}"
 
 # Check if WORKING_CONFIG_FULL_PATH exist
 if [ ! -f "${WORKING_CONFIG_FULL_PATH}" ]; then
-	displaycolor "1;91" "Configuration file \"${WORKING_CONFIG_FULL_PATH}\" does not exist."
+    displaycolor "1;91" "Configuration file \"${WORKING_CONFIG_FULL_PATH}\" does not exist."
 
-	exit 1
+    exit 1
 fi
+
+ENV_VARS=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k env -i ${ENV_INDEX}`
 
 BUILD_LANGUAGE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k language`
 BEFORE_INSTALL=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_install`
@@ -182,11 +184,9 @@ SCRIPT=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k script`
 
 
 # Set environment variables
-PUPPET_VERSION=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k env -i ${PUPPET_VERSION_INDEX}`
-
 displaycolor "1;93" "Setting environment variables from ${CONFIG_FILE}"
-${ECHO} "$ export ${PUPPET_VERSION}"
-export ${PUPPET_VERSION}
+${ECHO} "$ export ${ENV_VARS}"
+eval export ${ENV_VARS}
 
 ${ECHO} "\n"
 
@@ -225,10 +225,16 @@ if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
     RVM_VERSION=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k rvm -i ${RVM_VERSION_INDEX}`
     GEMFILE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k gemfile -i ${GEMFILE_INDEX}`
 
-    if [ ! -f "${WORKING_DIR}/${GEMFILE}" ]; then
-        displaycolor "1;91" "The file \"${GEMFILE}\" does not exist."
+    if [ -z ${GEMFILE} ]; then
+        GEMFILE="Gemfile"
+    fi
 
-        exit 1
+    if [ ! -z ${GEMFILE} ]; then
+        if [ ! -f "${WORKING_DIR}/${GEMFILE}" ]; then
+            displaycolor "1;91" "The file \"${GEMFILE}\" does not exist."
+
+            exit 1
+        fi
     fi
 
     # RVM
@@ -256,8 +262,10 @@ if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
     rvm use ${RVM_VERSION}
     #rvm use ${RVM_VERSION} --install --binary --fuzzy
 
-    ${ECHO} "$ export BUNDLE_GEMFILE=\$PWD/${GEMFILE}"
-    export BUNDLE_GEMFILE=${PWD}/${GEMFILE}
+    if [ ! -z ${GEMFILE} ]; then
+        ${ECHO} "$ export BUNDLE_GEMFILE=${PWD}/${GEMFILE}"
+        export BUNDLE_GEMFILE=${PWD}/${GEMFILE}
+    fi
 
     ${ECHO} "$ ruby --version"
     ruby --version 2> /dev/null

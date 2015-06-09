@@ -3,7 +3,7 @@
 require 'optparse'
 require 'yaml'
 
-def get_docker_command(image, module_path, container_module_path, config_file, module_branch, puppet_index, rvm_index, gemfile_index, storage, proxy)
+def get_docker_command(image, module_path, container_module_path, config_file, module_branch, env_index, rvm_index, gemfile_index, storage, proxy)
   result = Array.new
 
   result.push("docker run -t -i --rm -v #{module_path}:#{container_module_path}")
@@ -26,8 +26,8 @@ def get_docker_command(image, module_path, container_module_path, config_file, m
     result.push("-b #{module_branch}")
   end
 
-  unless puppet_index == 0
-    result.push("-p #{puppet_index}")
+  unless env_index == 0
+    result.push("-e #{env_index}")
   end
 
   unless rvm_index == 0
@@ -49,6 +49,8 @@ conf_file     = '.ci.yml'
 storage       = nil
 proxy         = nil
 
+
+# Options Parser
 OptionParser.new do |opts|
   opts.banner += ' [arguments...]'
 
@@ -58,13 +60,9 @@ OptionParser.new do |opts|
   opts.version = '0.0.1'
 
   opts.on('-b', '--branch BRANCH', "Branch #{module_branch}") { |arg| module_branch = arg.to_s }
-
   opts.on('-c', '--config FILE', "File #{conf_file}") { |arg| conf_file = arg.to_s }
-
   opts.on('-i', '--image IMAGE', "Image #{docker_image}") { |arg| docker_image = arg.to_s }
-
   opts.on('-p', '--proxy PROXY', "Proxy URL http://proxy.example.net:8080") { |arg| proxy = arg.to_s }
-
   opts.on('-s', '--storage STORAGE', "Path to the directory where to save the content of /usr/local/rvm in the container") { |arg| storage = arg.to_s }
 
   begin
@@ -77,6 +75,8 @@ OptionParser.new do |opts|
   end
 end
 
+
+# Read config file
 begin
   conf = YAML.load(File.open(conf_file))
 rescue Exception
@@ -86,6 +86,8 @@ rescue Exception
 end
 
 module_path   = File.expand_path(File.dirname(conf_file))
+
+# Parse config file
 matrix_exlude = nil
 
 if conf.has_key?('matrix')
@@ -95,23 +97,25 @@ if conf.has_key?('matrix')
 end
 
 if conf.has_key?('env') and conf.has_key?('rvm')
-  unless conf['env'].kind_of?(Array)
-    conf_env = [ conf['env'] ]
-  else
+  if conf['env'].kind_of?(Array)
     conf_env = conf['env']
+  elsif conf['env'].kind_of?(Hash)
+    conf_env = conf['env']['matrix']
+  else
+    conf_env = [ conf['env'] ]
   end
 
-  unless conf['rvm'].kind_of?(Array)
-    conf_rvm = [ conf['rvm'] ]
-  else
+  if conf['rvm'].kind_of?(Array)
     conf_rvm = conf['rvm']
+  else
+    conf_rvm = [ conf['rvm'] ]
   end
 
   if conf.has_key?('gemfile')
-    unless conf['gemfile'].kind_of?(Array)
-      conf_gemfile = [ conf['gemfile'] ]
-    else
+    if conf['gemfile'].kind_of?(Array)
       conf_gemfile = conf['gemfile']
+    else
+      conf_gemfile = [ conf['gemfile'] ]
     end
   else
     conf_gemfile = [ 'Gemfile' ]
@@ -120,6 +124,16 @@ if conf.has_key?('env') and conf.has_key?('rvm')
   conf_env.each do |env|
     conf_rvm.each do |rvm|
       conf_gemfile.each do |gemfile|
+        env_all = Array.new
+
+        env.split(' ').each do |e|
+          env_all.push(e)
+        end
+
+        if conf['env'].kind_of?(Hash) and conf['env'].has_key?('global')
+          env_all.concat(conf['env']['global'])
+        end
+
         unless matrix_exclude.nil?
           exclude_len   = 0
           exclude_count = 0
@@ -145,12 +159,12 @@ if conf.has_key?('env') and conf.has_key?('rvm')
           end
         end
 
-        puppet_index = conf_env.index(env)
+        env_index = conf_env.index(env)
         rvm_index = conf_rvm.index(rvm)
         gemfile_index = conf_gemfile.index(gemfile)
 
-        puts %{## #{env} RVM=#{rvm} GEMFILE=#{gemfile}}
-        puts get_docker_command(docker_image, module_path, docker_container_module_path, conf_file, module_branch, puppet_index, rvm_index, gemfile_index, storage, proxy)
+        puts %{## #{env_all.join(' ')} RVM=#{rvm} GEMFILE=#{gemfile}}
+        puts get_docker_command(docker_image, module_path, docker_container_module_path, conf_file, module_branch, env_index, rvm_index, gemfile_index, storage, proxy)
         puts %{\n}
       end
     end

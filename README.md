@@ -2,7 +2,7 @@
 
 This container will be use to run puppet module spec test based on the information provided by the file '.ci.yml' or file using the same syntax (eg: .travis.yml, ...) located in the puppet module directory.
 
-For now only the keys env, language, rvm, gemfile, before_install, install, before_script, script and matrix (exclude) are supported in the configuration file. Others keys will be ignore.
+For now only the keys env (global, matrix), language, rvm, gemfile, before_install, install, before_script, script and matrix (exclude) are supported in the configuration file. Others keys will be ignore.
 
 Here is an example of the file '.ci.yml':
 
@@ -70,31 +70,31 @@ docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -r 1
 docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -r 2
 
 ## PUPPET_VERSION=3.4.2 RVM=1.8.7 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 1
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 1
 
 ## PUPPET_VERSION=3.4.2 RVM=1.9.3 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 1 -r 1
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 1 -r 1
 
 ## PUPPET_VERSION=3.4.2 RVM=2.0.0 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 1 -r 2
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 1 -r 2
 
 ## PUPPET_VERSION=3.5.1 RVM=1.8.7 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 2
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 2
 
 ## PUPPET_VERSION=3.5.1 RVM=1.9.3 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 2 -r 1
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 2 -r 1
 
 ## PUPPET_VERSION=3.5.1 RVM=2.0.0 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 2 -r 2
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 2 -r 2
 
 ## PUPPET_VERSION=3.6.0 RVM=1.8.7 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 3
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 3
 
 ## PUPPET_VERSION=3.6.0 RVM=1.9.3 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 3 -r 1
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 3 -r 1
 
 ## PUPPET_VERSION=3.6.0 RVM=2.0.0 GEMFILE=Gemfile
-docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -p 3 -r 2
+docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 3 -r 2
 ```
 
 Pick the versions that you want to test and run it:
