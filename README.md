@@ -102,7 +102,7 @@ Pick the versions that you want to test and run it:
 ```
 $ docker run -t -i \
          -v /path/to/puppet/module:/srv/module \
-         kassis/puppet-spec
+         kassis/puppet-spec -r 1
 ```
 
 # User Feedback
