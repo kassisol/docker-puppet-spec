@@ -6,7 +6,7 @@ require 'yaml'
 def get_docker_command(image, module_path, container_module_path, config_file, module_branch, env_index, rvm_index, gemfile_index, storage, proxy)
   result = Array.new
 
-  result.push("docker run -t -i --rm -v #{module_path}:#{container_module_path}")
+  result.push("docker container run -ti --rm --mount type=bind,src=#{module_path},dst=#{container_module_path}")
 
   unless storage.nil?
     result.push("-v #{storage}:/usr/local/rvm")

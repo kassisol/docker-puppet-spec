@@ -6,7 +6,7 @@ For now only the keys env (global, matrix), language, rvm, gemfile, before_insta
 
 Here is an example of the file '.ci.yml':
 
-```
+```yaml
 ---
 env:
 - PUPPET_VERSION=3.3.2
@@ -29,7 +29,7 @@ matrix:
 
 A command ([puppet_spec_docker](https://github.com/juliengk/docker-puppet-spec/tree/master/bin)) is provided to generate the docker command to run the spec test with all the combination possible for Puppet and Ruby version.
 
-```
+```bash
 $ bin/puppet_spec_docker -h
 Usage: puppet_spec_docker [options] [arguments...]
 
@@ -57,12 +57,9 @@ The fastest way to get running:
  * download image: `docker pull kassis/puppet-spec`
 
 
-
-```
+```bash
 $ bin/puppet_spec_docker -c /path/to/puppet/module/.ci.yml
-```
 
-```
 ## PUPPET_VERSION=3.3.2 RVM=1.9.3 GEMFILE=Gemfile
 docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -r 1
 
@@ -99,9 +96,9 @@ docker run -t -i -v /path/to/puppet/module:/srv/module kassis/puppet-spec -e 3 -
 
 Pick the versions that you want to test and run it:
 
-```
-$ docker run -t -i \
-         -v /path/to/puppet/module:/srv/module \
+```bash
+$ docker container run -ti \
+         --mount type=bind,src=/path/to/puppet/module,dst=/srv/module \
          kassis/puppet-spec -r 1
 ```
 
