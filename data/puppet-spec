@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ECHO="echo -e"
 
@@ -25,7 +25,7 @@ RVM_VERSION_INDEX=0
 GEMFILE_INDEX=0
 
 # read the options
-TEMP=`getopt -o b:c:e:g:m:r: --long modulebranch:,config:,env:,gemfile:,modulepath:,rvmversion: -n "${0##*/}" -- "$@"`
+TEMP=$(getopt -o b:c:e:g:m:r: --long modulebranch:,config:,env:,gemfile:,modulepath:,rvmversion: -n "${0##*/}" -- "$@")
 eval set -- "${TEMP}"
 
 # extract options and their arguments into variables.
@@ -74,8 +74,8 @@ if [ ! -f "${MODULE_DIR}/${CONFIG_FILE}" ]; then
 fi
 
 # Check if ENV_INDEX is valid
-if [ ! -z "${ENV_INDEX}" ]; then
-    if [ `echo "${ENV_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
+if [ -n "$ENV_INDEX" ]; then
+    if [ $(echo "${ENV_INDEX}" | grep -E "^[0-9]+$" | wc-l) -eq "0" ]; then
         displaycolor "1;91" "Env index is not valid."
 
         exit 1
@@ -94,8 +94,8 @@ if [ ! -d "${MODULE_DIR}" ]; then
 fi
 
 # Check if RVM_VERSION_INDEX is valid
-if [ ! -z ${RVM_VERSION_INDEX} ]; then
-    if [ `echo "${RVM_VERSION_INDEX}" | grep -E "^[0-9]+$" | wc -l` -eq "0" ]; then
+if [ -n "$RVM_VERSION_INDEX" ]; then
+    if [ $(echo "${RVM_VERSION_INDEX}" | grep -E "^[0-9]+$" | wc -l) -eq "0" ]; then
         displaycolor "1;91" "RVM version index is not valid."
 
         exit 1
@@ -145,7 +145,7 @@ ${ECHO} "\n"
 # Set Proxy
 source /etc/profile.d/proxy.sh
 
-if [ ! -z ${http_proxy} ]; then
+if [ -n "$http_proxy" ]; then
     displaycolor "1;93" "Using proxy: ${http_proxy}"
 
     ${ECHO} "\n"
@@ -174,13 +174,13 @@ if [ ! -f "${WORKING_CONFIG_FULL_PATH}" ]; then
     exit 1
 fi
 
-ENV_VARS=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k env -i ${ENV_INDEX}`
+ENV_VARS=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k env -i ${ENV_INDEX})
 
-BUILD_LANGUAGE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k language`
-BEFORE_INSTALL=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_install`
-INSTALL=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k install`
-BEFORE_SCRIPT=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_script`
-SCRIPT=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k script`
+BUILD_LANGUAGE=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k language)
+BEFORE_INSTALL=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_install)
+INSTALL=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k install)
+BEFORE_SCRIPT=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k before_script)
+SCRIPT=$(${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k script)
 
 
 # Set environment variables
@@ -191,7 +191,7 @@ eval export ${ENV_VARS}
 ${ECHO} "\n"
 
 # Run before_install
-if [ ! -z ${BEFORE_INSTALL} ]; then
+if [ -n "$BEFORE_INSTALL" ]; then
     ${ECHO} "before_install"
     ${ECHO} "$ ${BEFORE_INSTALL}"
     eval ${BEFORE_INSTALL}
@@ -206,7 +206,7 @@ if [ ! -z ${BEFORE_INSTALL} ]; then
 fi
 
 # Run install
-if [ ! -z ${BEFORE_INSTALL} ]; then
+if [ -n "$BEFORE_INSTALL" ]; then
     ${ECHO} "install"
     ${ECHO} "$ ${INSTALL}"
     eval ${INSTALL}
@@ -225,11 +225,11 @@ if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
     RVM_VERSION=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k rvm -i ${RVM_VERSION_INDEX}`
     GEMFILE=`${CONF_PARSER} -c ${WORKING_CONFIG_FULL_PATH} -k gemfile -i ${GEMFILE_INDEX}`
 
-    if [ -z ${GEMFILE} ]; then
+    if [ -z "$GEMFILE" ]; then
         GEMFILE="Gemfile"
     fi
 
-    if [ ! -z ${GEMFILE} ]; then
+    if [ -n "$GEMFILE" ]; then
         if [ ! -f "${WORKING_DIR}/${GEMFILE}" ]; then
             displaycolor "1;91" "The file \"${GEMFILE}\" does not exist."
 
@@ -247,12 +247,12 @@ if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
         rvm requirements
     fi
 
-    if [ -z ${rvm_bin_path} ]; then
+    if [ -z "$rvm_bin_path" ]; then
         source /etc/profile.d/rvm.sh
     fi
 
     # Install of ruby
-    ruby_installed=`rvm list strings | grep "${RVM_VERSION}" | wc -l`
+    ruby_installed=$(rvm list strings | grep "${RVM_VERSION}" | wc -l)
 
     if [ "${ruby_installed}" -eq "0" ]; then
     	  rvm install ${RVM_VERSION}
@@ -262,7 +262,7 @@ if [ "${BUILD_LANGUAGE}" == "ruby" ]; then
     rvm use ${RVM_VERSION}
     #rvm use ${RVM_VERSION} --install --binary --fuzzy
 
-    if [ ! -z ${GEMFILE} ]; then
+    if [ -n "$GEMFILE" ]; then
         ${ECHO} "$ export BUNDLE_GEMFILE=${PWD}/${GEMFILE}"
         export BUNDLE_GEMFILE=${PWD}/${GEMFILE}
     fi

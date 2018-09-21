@@ -3,7 +3,7 @@
 #NO_PROXY=""
 
 # Set Proxy
-if [ ! -z ${PROXY} ]; then
+if [ -n "$PROXY" ]; then
     http_proxy=${PROXY}
     https_proxy=${PROXY}
     HTTP_PROXY=${PROXY}
@@ -12,7 +12,7 @@ if [ ! -z ${PROXY} ]; then
 
     no_proxy="localhost"
 
-    if [ ! -z $NO_PROXY ]; then
+    if [ -n "$NO_PROXY" ]; then
         no_proxy="${no_proxy},${NO_PROXY}"
     fi
 
